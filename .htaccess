@@ -1,0 +1,42 @@
+# =============================================================================
+# NotaNova - .htaccess raiz
+#
+# Proteccion por capas: sin listado de directorios, carpetas internas
+# inaccesibles por HTTP, archivos peligrosos bloqueados y cabeceras
+# de seguridad en todas las respuestas.
+# =============================================================================
+
+# --- No permitir el listado de contenidos de las carpetas ---
+Options -Indexes
+
+# --- Carpetas internas: nunca se piden por HTTP (se incluyen con require) ---
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Bloquea /db, /includes y /views: todo se sirve desde index.php
+    RewriteRule ^(db|includes|views)(/|$) - [F,L]
+</IfModule>
+
+# --- Archivos que jamas deben poder descargarse ---
+<FilesMatch "\.(sql|md|log|ini|bak|old|env|dist|sh)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# --- Archivos ocultos (.gitignore, .env, .htaccess, etc.) ---
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# --- Cabeceras de seguridad en toda respuesta ---
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
