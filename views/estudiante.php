@@ -57,6 +57,20 @@ try {
 // Selección de curso activo
 $curso_id = $_GET['curso_id'] ?? ($mis_cursos[0]['id'] ?? null);
 
+// IDOR: solo se permite abrir cursos en los que el estudiante está matriculado
+if ($curso_id !== null && $curso_id !== '') {
+    $ids_mis_cursos = array_map(static function ($c) {
+        return (int) $c['id'];
+    }, $mis_cursos);
+
+    if (!in_array((int) $curso_id, $ids_mis_cursos, true)) {
+        flash_error('No estás matriculado en ese curso.');
+        header('Location: index.php');
+        exit;
+    }
+    $curso_id = (int) $curso_id;
+}
+
 $curso_actual = null;
 if ($curso_id) {
     foreach ($mis_cursos as $c) {

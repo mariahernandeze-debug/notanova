@@ -29,6 +29,22 @@ $mis_cursos = $stmt_cursos->fetchAll(PDO::FETCH_ASSOC);
 
 $curso_id = $_GET['curso_id'] ?? ($mis_cursos[0]['id'] ?? null);
 
+// IDOR: el curso solicitado debe pertenecer obligatoriamente al docente
+// logueado. Sin esta validación, cambiar el curso_id de la URL permitía
+// ver y editar las planillas de otros docentes.
+if ($curso_id !== null && $curso_id !== '') {
+    $ids_mis_cursos = array_map(static function ($c) {
+        return (int) $c['id'];
+    }, $mis_cursos);
+
+    if (!in_array((int) $curso_id, $ids_mis_cursos, true)) {
+        flash_error('No tienes permiso para acceder a ese curso.');
+        header('Location: index.php');
+        exit;
+    }
+    $curso_id = (int) $curso_id;
+}
+
 function normalizarNombreBloque($texto) {
     $texto = mb_strtolower(trim((string)$texto));
     $texto = preg_replace('/\s+/', ' ', $texto);
@@ -51,8 +67,8 @@ $flash_error = tomar_flash_error();
 
 $curso_actual = null;
 if ($curso_id) {
-    $stmt_c = $pdo->prepare("SELECT * FROM cursos WHERE id = ?");
-    $stmt_c->execute([$curso_id]);
+    $stmt_c = $pdo->prepare("SELECT * FROM cursos WHERE id = ? AND docente_id = ?");
+    $stmt_c->execute([$curso_id, $docente_id]);
     $curso_actual = $stmt_c->fetch(PDO::FETCH_ASSOC);
 }
 
@@ -62,7 +78,9 @@ $escala_max = floatval($curso_actual['escala'] ?? 5.0);
 // PROCESAMIENTO DE FORMULARIOS (POST)
 // ==============================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    
+    // Ninguna acción POST se ejecuta sin un token CSRF válido
+    verificar_csrf();
+
     // GUARDAR MODALIDAD, ESCALA Y PORCENTAJES
     if ($_POST['action'] === 'set_modalidad') {
         $nueva_modalidad = $_POST['modalidad'] ?? 'cortes';
@@ -197,7 +215,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             $hay_error_rango = false;
 
+            // Estudiantes realmente matriculados en este curso
+            $stmt_matric = $pdo->prepare("SELECT estudiante_id FROM curso_estudiante WHERE curso_id = ?");
+            $stmt_matric->execute([$curso_id]);
+            $matriculados = array_map('intval', $stmt_matric->fetchAll(PDO::FETCH_COLUMN));
+
             foreach ($_POST['notas'] as $est_id => $actividades_notas) {
+                // Solo se aceptan filas de estudiantes matriculados en el curso
+                if (!in_array((int) $est_id, $matriculados, true)) {
+                    continue;
+                }
+
                 foreach ($actividades_notas as $act_id => $val_nota) {
                     if ($val_nota !== '') {
                         $nota_num = floatval($val_nota);
@@ -208,9 +236,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             break 2;
                         }
 
-                        $stmt_act_info = $pdo->prepare("SELECT nombre, corte, porcentaje FROM actividades WHERE actividad_id = ?");
-                        $stmt_act_info->execute([$act_id]);
+                        // La actividad debe pertenecer al curso activo (evita IDOR)
+                        $stmt_act_info = $pdo->prepare("SELECT nombre, corte, porcentaje FROM actividades WHERE actividad_id = ? AND curso_id = ?");
+                        $stmt_act_info->execute([$act_id, $curso_id]);
                         $act_data = $stmt_act_info->fetch(PDO::FETCH_ASSOC);
+
+                        if (!$act_data) {
+                            continue;
+                        }
 
                         $nombre_act = $act_data['nombre'] ?? '';
                         $corte_nombre = $act_data['corte'] ?? 'Corte 1';
@@ -237,8 +270,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 // ==============================================================================
 
 if ($curso_id) {
-    $stmt_c = $pdo->prepare("SELECT * FROM cursos WHERE id = ?");
-    $stmt_c->execute([$curso_id]);
+    $stmt_c = $pdo->prepare("SELECT * FROM cursos WHERE id = ? AND docente_id = ?");
+    $stmt_c->execute([$curso_id, $docente_id]);
     $curso_actual = $stmt_c->fetch(PDO::FETCH_ASSOC);
 }
 
@@ -509,6 +542,7 @@ if ($curso_id && !empty($todas_actividades)) {
 
             <form method="POST" action="<?php echo $self_url; ?>?curso_id=<?php echo $curso_id; ?>" onsubmit="return validarPlanillaAntesDeEnviar()">
                 <input type="hidden" name="action" value="guardar_notas">
+                <?php echo campo_csrf(); ?>
 
                 <div class="bg-white border border-slate-200/80 rounded-[36px] overflow-hidden shadow-xl mb-6">
                     <div class="overflow-x-auto custom-scroll-x p-4">
@@ -560,11 +594,11 @@ if ($curso_id && !empty($todas_actividades)) {
                                                             <?php echo htmlspecialchars($act['descripcion']); ?>
                                                         </span>
                                                         
-                                                        <button type="button" onclick='abrirModalEditar(<?php echo json_encode($act); ?>)' class="text-indigo-500 hover:text-indigo-700 transition-colors" title="Editar Actividad">
+                                                        <button type="button" onclick='abrirModalEditar(<?php echo json_encode($act, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' class="text-indigo-500 hover:text-indigo-700 transition-colors" title="Editar Actividad">
                                                             <i class="fa-solid fa-pen-to-square"></i>
                                                         </button>
                                                         
-                                                        <button type="button" onclick='abrirModalEliminar(<?php echo json_encode($act); ?>)' class="text-rose-400 hover:text-rose-600 transition-colors" title="Eliminar Actividad">
+                                                        <button type="button" onclick='abrirModalEliminar(<?php echo json_encode($act, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' class="text-rose-400 hover:text-rose-600 transition-colors" title="Eliminar Actividad">
                                                             <i class="fa-solid fa-trash-can"></i>
                                                         </button>
                                                     </div>
@@ -665,6 +699,7 @@ if ($curso_id && !empty($todas_actividades)) {
 
             <form method="POST" action="<?php echo $self_url; ?>?curso_id=<?php echo $curso_id; ?>" onsubmit="return validarSumaPesosConfig(event)" class="p-8 space-y-6 overflow-y-auto flex-1 bg-white">
                 <input type="hidden" name="action" value="set_modalidad">
+                <?php echo campo_csrf(); ?>
 
                 <div id="configAlertError" class="hidden p-4 bg-rose-50 border-l-4 border-rose-500 text-rose-800 font-bold rounded-r-xl text-xs"></div>
 
@@ -780,6 +815,7 @@ if ($curso_id && !empty($todas_actividades)) {
             <form id="formActividad" method="POST" action="<?php echo $self_url; ?>?curso_id=<?php echo $curso_id; ?>" onsubmit="return validarPorcentajeModal(event)" class="p-8 space-y-5 bg-white">
                 <input type="hidden" name="action" id="form_action" value="crear_actividad">
                 <input type="hidden" name="actividad_id" id="form_actividad_id" value="">
+                <?php echo campo_csrf(); ?>
 
                 <div id="modalAlertError" class="hidden p-4 bg-rose-50 border-l-4 border-rose-500 text-rose-800 font-bold rounded-r-xl text-xs"></div>
 
@@ -836,6 +872,7 @@ if ($curso_id && !empty($todas_actividades)) {
             <form method="POST" action="<?php echo $self_url; ?>?curso_id=<?php echo $curso_id; ?>" class="grid grid-cols-2 gap-3">
                 <input type="hidden" name="action" value="eliminar_actividad">
                 <input type="hidden" name="actividad_id" id="del_act_id" value="">
+                <?php echo campo_csrf(); ?>
 
                 <button type="button" onclick="cerrarModalEliminar()" class="w-full bg-slate-100 text-slate-600 font-extrabold py-3.5 rounded-2xl text-xs uppercase">
                     CANCELAR
@@ -897,7 +934,7 @@ if ($curso_id && !empty($todas_actividades)) {
     </div>
 
     <script>
-        const totalesPorBloque = <?php echo json_encode($totales_por_bloque); ?>;
+        const totalesPorBloque = <?php echo json_encode($totales_por_bloque, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
         const escalaMaxJS = <?php echo $escala_max; ?>;
         let actividadEditandoId = null;
         let actividadEditandoPctOriginal = 0;

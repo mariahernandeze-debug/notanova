@@ -53,6 +53,8 @@ $color  = $portal['color'];
 $error = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verificar_csrf();
+
     $documento = trim($_POST['documento'] ?? '');
     $password  = $_POST['password'] ?? '';
 
@@ -183,6 +185,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <form method="POST" action="login.php?rol=<?php echo urlencode($rol); ?>" class="space-y-5">
                 <input type="hidden" name="rol" value="<?php echo htmlspecialchars($rol); ?>">
+                <?php echo campo_csrf(); ?>
 
                 <div>
                     <label class="block text-[11px] font-black text-slate-400 uppercase mb-2 ml-1">DOCUMENTO / USUARIO</label>

@@ -49,11 +49,14 @@ function campo_csrf(): string
 }
 
 /**
- * Valida el token CSRF del POST actual. Sale con mensaje si es inválido.
+ * Valida el token CSRF de la solicitud actual. Sale con mensaje si es inválido.
+ *
+ * El token viaja en el cuerpo (POST) o en la URL (?csrf_token=) para las
+ * acciones destructivas que aún se ejecutan mediante enlaces GET.
  */
 function verificar_csrf(): void
 {
-    $token = $_POST['csrf_token'] ?? '';
+    $token = $_POST['csrf_token'] ?? $_GET['csrf_token'] ?? '';
     if (empty($_SESSION['csrf_token']) || !is_string($token) || !hash_equals($_SESSION['csrf_token'], $token)) {
         http_response_code(403);
         die('Solicitud no válida (token CSRF). Vuelve atrás e inténtalo de nuevo.');

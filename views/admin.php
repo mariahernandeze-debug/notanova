@@ -27,6 +27,8 @@ $flash_error = tomar_flash_error();
 
 // 1. Eliminar Registro General (Estudiante, Docente, Curso)
 if ($action === 'delete' && $id) {
+    verificar_csrf();
+
     $tablas_permitidas = [
         'estudiantes' => 'estudiantes',
         'docentes'    => 'docentes',
@@ -45,6 +47,8 @@ if ($action === 'delete' && $id) {
 
 // 2. Desmatricular Estudiante de un Curso Específico
 if ($action === 'desmatricular' && isset($_GET['estudiante_id']) && $gestion_id) {
+    verificar_csrf();
+
     $est_id = intval($_GET['estudiante_id']);
     try {
         $stmt_del_mat = $pdo->prepare("DELETE FROM curso_estudiante WHERE curso_id = ? AND estudiante_id = ?");
@@ -57,6 +61,9 @@ if ($action === 'desmatricular' && isset($_GET['estudiante_id']) && $gestion_id)
 
 // --- PROCESAMIENTO DE FORMULARIOS POST ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Ningún formulario POST se procesa sin un token CSRF válido
+    verificar_csrf();
+
     try {
         // =====================================================================
         // GESTIÓN DE USUARIOS (nueva sección, con protección CSRF)
@@ -531,6 +538,7 @@ if ($view === 'cursos' && $gestion_id) {
                         <!-- Formulario para reasignar docente -->
                         <form method="POST" action="index.php?view=cursos&gestion_id=<?php echo $gestion_id; ?>" class="space-y-4">
                             <input type="hidden" name="action_type" value="actualizar_docente">
+                            <?php echo campo_csrf(); ?>
                             <input type="hidden" name="curso_id" value="<?php echo $gestion_id; ?>">
 
                             <select name="docente_id" class="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -587,7 +595,7 @@ if ($view === 'cursos' && $gestion_id) {
                                                 <?php echo htmlspecialchars($est['nombre']); ?>
                                             </td>
                                             <td class="py-5 text-right">
-                                                <a href="index.php?view=cursos&gestion_id=<?php echo $gestion_id; ?>&action=desmatricular&estudiante_id=<?php echo $est['id']; ?>" 
+                                                <a href="index.php?view=cursos&gestion_id=<?php echo $gestion_id; ?>&action=desmatricular&estudiante_id=<?php echo $est['id']; ?>&csrf_token=<?php echo urlencode(token_csrf()); ?>" 
                                                    onclick="return confirm('¿Desmatricular a este estudiante del curso?');" 
                                                    class="w-9 h-9 rounded-xl bg-rose-50 text-rose-400 hover:bg-rose-500 hover:text-white transition-all inline-flex items-center justify-center">
                                                     <i class="fa-solid fa-user-minus text-xs"></i>
@@ -615,6 +623,7 @@ if ($view === 'cursos' && $gestion_id) {
 
                     <form method="POST" action="index.php?view=cursos&gestion_id=<?php echo $gestion_id; ?>" class="p-8 space-y-5 bg-white">
                         <input type="hidden" name="action_type" value="matricular_estudiante">
+                        <?php echo campo_csrf(); ?>
                         <input type="hidden" name="curso_id" value="<?php echo $gestion_id; ?>">
 
                         <div>
@@ -731,12 +740,12 @@ if ($view === 'cursos' && $gestion_id) {
                                                    class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center justify-center shadow-sm">
                                                     <i class="fa-solid fa-users-gear text-xs"></i>
                                                 </a>
-                                                <button onclick='editarRegistro(<?php echo json_encode($reg); ?>)' 
+                                                <button onclick='editarRegistro(<?php echo json_encode($reg, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' 
                                                         title="Editar Datos"
                                                         class="w-10 h-10 rounded-2xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all inline-flex items-center justify-center shadow-sm">
                                                     <i class="fa-solid fa-pen text-xs"></i>
                                                 </button>
-                                                <a href="index.php?view=cursos&action=delete&id=<?php echo $reg['id']; ?>" 
+                                                <a href="index.php?view=cursos&action=delete&id=<?php echo $reg['id']; ?>&csrf_token=<?php echo urlencode(token_csrf()); ?>" 
                                                    onclick="return confirm('¿Deseas eliminar este curso?');" 
                                                    class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all inline-flex items-center justify-center shadow-sm">
                                                     <i class="fa-solid fa-trash-can text-xs"></i>
@@ -761,11 +770,11 @@ if ($view === 'cursos' && $gestion_id) {
                                                 <i class="fa-solid fa-phone text-slate-400 mr-1"></i> <?php echo htmlspecialchars($reg['telefono'] ?? '-'); ?>
                                             </td>
                                             <td class="p-6 text-right pr-10 space-x-2">
-                                                <button onclick='editarRegistro(<?php echo json_encode($reg); ?>)' 
+                                                <button onclick='editarRegistro(<?php echo json_encode($reg, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' 
                                                         class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center justify-center shadow-sm">
                                                     <i class="fa-solid fa-pen text-xs"></i>
                                                 </button>
-                                                <a href="index.php?view=docentes&action=delete&id=<?php echo $reg['id']; ?>" 
+                                                <a href="index.php?view=docentes&action=delete&id=<?php echo $reg['id']; ?>&csrf_token=<?php echo urlencode(token_csrf()); ?>" 
                                                    onclick="return confirm('¿Deseas eliminar este docente?');" 
                                                    class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all inline-flex items-center justify-center shadow-sm">
                                                     <i class="fa-solid fa-trash-can text-xs"></i>
@@ -872,11 +881,11 @@ if ($view === 'cursos' && $gestion_id) {
                                                 <?php endif; ?>
                                             </td>
                                             <td class="p-6 text-right pr-10 space-x-2">
-                                                <button onclick='editarRegistro(<?php echo json_encode($reg); ?>)' 
+                                                <button onclick='editarRegistro(<?php echo json_encode($reg, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)' 
                                                         class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all inline-flex items-center justify-center shadow-sm">
                                                     <i class="fa-solid fa-pen text-xs"></i>
                                                 </button>
-                                                <a href="index.php?view=estudiantes&action=delete&id=<?php echo $reg['id']; ?>" 
+                                                <a href="index.php?view=estudiantes&action=delete&id=<?php echo $reg['id']; ?>&csrf_token=<?php echo urlencode(token_csrf()); ?>" 
                                                    onclick="return confirm('¿Deseas eliminar este estudiante?');" 
                                                    class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-500 hover:bg-rose-500 hover:text-white transition-all inline-flex items-center justify-center shadow-sm">
                                                     <i class="fa-solid fa-trash-can text-xs"></i>
@@ -910,6 +919,7 @@ if ($view === 'cursos' && $gestion_id) {
             
             <form method="POST" action="index.php?view=<?php echo $view; ?>" class="p-8 space-y-4 overflow-y-auto custom-scroll bg-white">
                 <input type="hidden" name="id" id="form_id">
+                <?php echo campo_csrf(); ?>
 
                 <?php if ($view === 'estudiantes'): ?>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
