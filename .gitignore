@@ -1,0 +1,17 @@
+# Sistema
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Archivos temporales / de usuario
+*.tmp
+*.bak
+*.log
+
+# Entorno local (credenciales) - si en el futuro se usa un .env
+.env
+.env.local
+
+# Dependencias (si se añaden en el futuro)
+/vendor/
+node_modules/
