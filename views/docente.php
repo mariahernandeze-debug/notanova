@@ -382,6 +382,17 @@ if ($curso_id) {
     }
 }
 
+// --- Opción B: el número NO cambia, pero se marca cuánto falta por evaluar ---
+// Avance real del curso: peso del bloque x porcentaje interno ya cubierto.
+$pct_evaluado = 0;
+foreach ($bloques as $b) {
+    $peso_b_eval = floatval($pesos_bloques[$b] ?? 0);
+    $pct_evaluado += ($peso_b_eval / 100) * min($totales_por_bloque[$b] ?? 0, 100);
+}
+$pct_evaluado = min($pct_evaluado, 100);
+$falta_evaluar = max(0, 100 - $pct_evaluado);
+$es_parcial = ($falta_evaluar > 0.5);
+
 // CORRECCIÓN: CARGAR ÚNICAMENTE ESTUDIANTES MATRICULADOS EN EL CURSO ACTIVO
 $estudiantes = [];
 if ($curso_id) {
@@ -557,6 +568,12 @@ if ($curso_id && !empty($todas_actividades)) {
                         <span class="bg-slate-100 text-slate-600 font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider border border-slate-200">
                             MODALIDAD: <?php echo strtoupper($modalidad); ?>
                         </span>
+                        <?php if ($es_parcial): ?>
+                            <span class="bg-amber-100 text-amber-800 font-extrabold text-[10px] px-3 py-1 rounded-full uppercase tracking-wider border border-amber-200 flex items-center gap-1.5">
+                                <i class="fa-solid fa-triangle-exclamation text-amber-500"></i>
+                                PLANILLA PARCIAL &middot; FALTA <?php echo round($falta_evaluar); ?>% POR EVALUAR
+                            </span>
+                        <?php endif; ?>
                     </div>
                     <h2 class="text-3xl md:text-4xl font-black italic tracking-tight text-slate-900 uppercase">
                         PLANILLA DE CONTROL
@@ -610,7 +627,14 @@ if ($curso_id && !empty($todas_actividades)) {
                                     <?php endforeach; ?>
 
                                     <th class="p-6 text-center border-l-2 border-slate-300 bg-indigo-50/50 text-indigo-900 font-black min-w-[120px]">
-                                        DEFINITIVA
+                                        <?php if ($es_parcial): ?>
+                                            <span class="block text-[9px] font-black uppercase tracking-wider text-amber-600 mb-1">
+                                                Falta <?php echo round($falta_evaluar); ?>% por evaluar
+                                            </span>
+                                            ACUMULADA
+                                        <?php else: ?>
+                                            DEFINITIVA
+                                        <?php endif; ?>
                                     </th>
                                 </tr>
 
@@ -647,10 +671,18 @@ if ($curso_id && !empty($todas_actividades)) {
 
                                         <th class="p-3 text-center min-w-[100px] bg-slate-100/70 text-slate-700 font-black border-l border-slate-200">
                                             PROM.
+                                            <?php $falta_b = max(0, 100 - min($totales_por_bloque[$b] ?? 0, 100)); ?>
+                                            <?php if ($falta_b > 0.5): ?>
+                                                <span class="block text-[9px] font-black uppercase tracking-wider text-amber-600">
+                                                    falta <?php echo round($falta_b); ?>%
+                                                </span>
+                                            <?php endif; ?>
                                         </th>
                                     <?php endforeach; ?>
 
-                                    <th class="p-3 text-center border-l-2 border-slate-300 bg-indigo-50/50">DEFINITIVA</th>
+                                    <th class="p-3 text-center border-l-2 border-slate-300 bg-indigo-50/50">
+                                        <?php echo $es_parcial ? 'ACUMULADA' : 'DEFINITIVA'; ?>
+                                    </th>
                                 </tr>
                             </thead>
 
@@ -695,11 +727,22 @@ if ($curso_id && !empty($todas_actividades)) {
 
                                                 <td class="p-3 text-center font-black text-slate-800 bg-slate-100/50 border-l border-slate-200">
                                                     <span class="prom-bloque text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg" data-bloque-prom="<?php echo htmlspecialchars($b); ?>" data-peso-bloque="<?php echo floatval($pesos_bloques[$b] ?? 0); ?>">0.0</span>
+                                                    <?php $falta_b = max(0, 100 - min($totales_por_bloque[$b] ?? 0, 100)); ?>
+                                                    <?php if ($falta_b > 0.5): ?>
+                                                        <span class="block text-[9px] font-black uppercase tracking-wider text-amber-600 mt-1">
+                                                            falta <?php echo round($falta_b); ?>%
+                                                        </span>
+                                                    <?php endif; ?>
                                                 </td>
                                             <?php endforeach; ?>
 
                                             <td class="p-5 text-center font-black border-l-2 border-slate-300 bg-indigo-50/30 text-indigo-900 text-base">
                                                 <span class="prom-definitiva bg-indigo-600 text-white px-3 py-1.5 rounded-xl shadow-md">0.0</span>
+                                                <?php if ($es_parcial): ?>
+                                                    <span class="block text-[9px] font-black uppercase tracking-wider text-amber-600 mt-1.5">
+                                                        acumulado parcial
+                                                    </span>
+                                                <?php endif; ?>
                                             </td>
 
                                         </tr>

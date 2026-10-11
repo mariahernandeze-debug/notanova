@@ -319,23 +319,46 @@ $self_url = htmlspecialchars($_SERVER['PHP_SELF']);
 
                 <?php 
                     $definitiva_general = 0;
+                    $pct_evaluado = 0;
+
                     foreach ($bloques as $b) {
                         $peso_b = $pesos_bloques[$b] ?? 0;
                         $prom_b = 0;
+                        $suma_interna = 0;
+
                         if (!empty($actividades_por_bloque[$b])) {
                             foreach ($actividades_por_bloque[$b] as $act_b) {
                                 $n_val = floatval($act_b['nota'] ?? 0);
                                 $p_val = floatval($act_b['porcentaje'] ?? 0);
                                 $prom_b += $n_val * ($p_val / 100);
+                                $suma_interna += $p_val;
                             }
                         }
+
                         $definitiva_general += $prom_b * ($peso_b / 100);
+
+                        // Cuanto del peso real del curso ya está efectivamente evaluado
+                        $pct_evaluado += ($peso_b / 100) * min($suma_interna, 100);
                     }
+
+                    $pct_evaluado = min($pct_evaluado, 100);
+                    $falta_evaluar = max(0, 100 - $pct_evaluado);
+                    $es_parcial = ($falta_evaluar > 0.5);
                 ?>
                 <div class="bg-[#2d1202] text-white p-6 rounded-[28px] flex items-center justify-between md:justify-end gap-6 shadow-xl border border-orange-500/30 min-w-[240px]">
                     <div>
-                        <span class="block text-[10px] font-black text-orange-300 uppercase tracking-widest">NOTA DEFINITIVA</span>
-                        <span class="text-xs text-orange-200/70 font-semibold">Acumulado actual</span>
+                        <span class="block text-[10px] font-black text-orange-300 uppercase tracking-widest">
+                            <?php echo $es_parcial ? 'NOTA ACUMULADA' : 'NOTA DEFINITIVA'; ?>
+                        </span>
+                        <span class="text-xs text-orange-200/70 font-semibold">
+                            <?php if ($es_parcial): ?>
+                                <span class="inline-block bg-amber-400/20 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                                    Falta <?php echo round($falta_evaluar); ?>% por evaluar
+                                </span>
+                            <?php else: ?>
+                                Cierre definitivo
+                            <?php endif; ?>
+                        </span>
                     </div>
                     <div class="text-4xl font-black italic neon-text-orange">
                         <?php echo number_format($definitiva_general, 1); ?>
@@ -350,11 +373,14 @@ $self_url = htmlspecialchars($_SERVER['PHP_SELF']);
                         $acts = $actividades_por_bloque[$b];
                         
                         $nota_bloque = 0;
+                        $suma_interna_b = 0;
                         foreach ($acts as $act_item) {
                             $n = floatval($act_item['nota'] ?? 0);
                             $p = floatval($act_item['porcentaje'] ?? 0);
                             $nota_bloque += $n * ($p / 100);
+                            $suma_interna_b += $p;
                         }
+                        $falta_bloque = max(0, 100 - min($suma_interna_b, 100));
                     ?>
                     <div class="bg-white border border-slate-200/80 rounded-[32px] overflow-hidden shadow-lg flex flex-col justify-between">
                         <div class="p-6 bg-orange-50/40 border-b border-orange-100 flex items-center justify-between">
@@ -365,6 +391,11 @@ $self_url = htmlspecialchars($_SERVER['PHP_SELF']);
                             <div class="text-right">
                                 <span class="block text-[10px] font-black text-orange-600 uppercase">NOTA BLOQUE</span>
                                 <span class="text-2xl font-black text-slate-900 italic"><?php echo number_format($nota_bloque, 1); ?></span>
+                                <?php if ($falta_bloque > 0.5): ?>
+                                    <span class="block text-[9px] font-black uppercase tracking-wider text-amber-600 mt-1">
+                                        Falta <?php echo round($falta_bloque); ?>% por evaluar
+                                    </span>
+                                <?php endif; ?>
                             </div>
                         </div>
 
