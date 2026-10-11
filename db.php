@@ -9,5 +9,6 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    die("Error en la conexión a la base de datos: " . $e->getMessage());
+    error_log('[NotaNova] conexión a la base de datos: ' . $e->getMessage());
+    die("Servicio no disponible temporalmente. Intenta de nuevo más tarde.");
 }

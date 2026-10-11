@@ -121,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     exit;
 
                 } catch (PDOException $e) {
-                    $mensaje_error = "Error al actualizar la configuración: " . $e->getMessage();
+                    error_log('[NotaNova] set_modalidad: ' . $e->getMessage());
+                    $mensaje_error = "No se pudo actualizar la configuración del curso. Inténtalo de nuevo.";
                 }
             }
         }
@@ -160,7 +161,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     header("Location: " . $self_url . "?curso_id=" . $curso_id);
                     exit;
                 } catch (PDOException $e) {
-                    $mensaje_error = "Error al guardar la actividad: " . $e->getMessage();
+                    error_log('[NotaNova] crear_actividad: ' . $e->getMessage());
+                    $mensaje_error = "No se pudo guardar la actividad. Inténtalo de nuevo.";
                 }
             }
         }
@@ -180,7 +182,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             header("Location: " . $self_url . "?curso_id=" . $curso_id);
             exit;
         } catch (PDOException $e) {
-            $mensaje_error = "Error al actualizar la actividad: " . $e->getMessage();
+            error_log('[NotaNova] editar_actividad: ' . $e->getMessage());
+            $mensaje_error = "No se pudo actualizar la actividad. Inténtalo de nuevo.";
         }
     }
 
@@ -206,7 +209,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            $mensaje_error = "Error al eliminar la actividad: " . $e->getMessage();
+            error_log('[NotaNova] eliminar_actividad: ' . $e->getMessage());
+            $mensaje_error = "No se pudo eliminar la actividad. Inténtalo de nuevo.";
         }
     }
 
@@ -373,7 +377,8 @@ if ($curso_id) {
             }
         }
     } catch (PDOException $e) {
-        $mensaje_error = "Error al consultar actividades: " . $e->getMessage();
+        error_log('[NotaNova] listar actividades: ' . $e->getMessage());
+        $mensaje_error = "No se pudieron cargar las actividades del curso. Recarga la página.";
     }
 }
 
@@ -391,7 +396,8 @@ if ($curso_id) {
         $stmt_est->execute([$curso_id]);
         $estudiantes = $stmt_est->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
-        $mensaje_error = "Error al cargar estudiantes del curso: " . $e->getMessage();
+        error_log('[NotaNova] estudiantes del curso: ' . $e->getMessage());
+        $mensaje_error = "No se pudieron cargar los estudiantes del curso. Recarga la página.";
     }
 }
 

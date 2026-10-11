@@ -35,7 +35,8 @@ try {
     $stmt_est->execute([$estudiante_id]);
     $estudiante = $stmt_est->fetch(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $mensaje_error = "Error al cargar los datos del estudiante: " . $e->getMessage();
+    error_log('[NotaNova] cargar datos estudiante: ' . $e->getMessage());
+    $mensaje_error = "No se pudieron cargar tus datos. Recarga la página e inténtalo de nuevo.";
 }
 
 // CORRECCIÓN: Cargar únicamente las asignaturas en las que el estudiante está matriculado
@@ -51,7 +52,8 @@ try {
     $stmt_cursos->execute([$estudiante_id]);
     $mis_cursos = $stmt_cursos->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
-    $mensaje_error = "Error al consultar las asignaturas del estudiante: " . $e->getMessage();
+    error_log('[NotaNova] asignaturas del estudiante: ' . $e->getMessage());
+    $mensaje_error = "No se pudieron cargar tus asignaturas. Recarga la página e inténtalo de nuevo.";
 }
 
 // Selección de curso activo
@@ -160,7 +162,8 @@ if ($curso_id) {
             }
         }
     } catch (PDOException $e) {
-        $mensaje_error = "Error al cargar actividades y notas: " . $e->getMessage();
+        error_log('[NotaNova] actividades y notas del estudiante: ' . $e->getMessage());
+        $mensaje_error = "No se pudieron cargar las actividades y notas. Recarga la página e inténtalo de nuevo.";
     }
 }
 

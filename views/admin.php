@@ -299,7 +299,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($e->getCode() == 23000) {
             $error_msg = "El código asignado ya existe en el sistema. Utiliza uno diferente.";
         } else {
-            $error_msg = "Error en la base de datos: " . $e->getMessage();
+            error_log('[NotaNova] admin CRUD: ' . $e->getMessage());
+            $error_msg = "No se pudo completar la operación. Revisa los datos e inténtalo de nuevo.";
         }
     }
 }
