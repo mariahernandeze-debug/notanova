@@ -210,16 +210,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
     }
 
-    // GUARDAR CALIFICACIONES
+    // GUARDAR CALIFICACIONES (dos fases: validar todo y luego escribir en una
+    // sola transacción, para no dejar la planilla a medias si algo falla)
     if ($_POST['action'] === 'guardar_notas' && isset($_POST['notas'])) {
         try {
-            $hay_error_rango = false;
+            $error_validacion = null;
+            $pendientes = [];
 
             // Estudiantes realmente matriculados en este curso
             $stmt_matric = $pdo->prepare("SELECT estudiante_id FROM curso_estudiante WHERE curso_id = ?");
             $stmt_matric->execute([$curso_id]);
             $matriculados = array_map('intval', $stmt_matric->fetchAll(PDO::FETCH_COLUMN));
 
+            // Las actividades deben pertenecer al curso activo (evita IDOR)
+            $stmt_act_info = $pdo->prepare("SELECT nombre, corte, porcentaje FROM actividades WHERE actividad_id = ? AND curso_id = ?");
+
+            // FASE 1 — validación: no se escribe nada todavía
             foreach ($_POST['notas'] as $est_id => $actividades_notas) {
                 // Solo se aceptan filas de estudiantes matriculados en el curso
                 if (!in_array((int) $est_id, $matriculados, true)) {
@@ -227,40 +233,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 foreach ($actividades_notas as $act_id => $val_nota) {
-                    if ($val_nota !== '') {
-                        $nota_num = floatval($val_nota);
-
-                        if ($nota_num < 0.0 || $nota_num > $escala_max) {
-                            $mensaje_error = "Error: Las calificaciones deben estar entre 0.0 y " . number_format($escala_max, 1) . ".";
-                            $hay_error_rango = true;
-                            break 2;
-                        }
-
-                        // La actividad debe pertenecer al curso activo (evita IDOR)
-                        $stmt_act_info = $pdo->prepare("SELECT nombre, corte, porcentaje FROM actividades WHERE actividad_id = ? AND curso_id = ?");
-                        $stmt_act_info->execute([$act_id, $curso_id]);
-                        $act_data = $stmt_act_info->fetch(PDO::FETCH_ASSOC);
-
-                        if (!$act_data) {
-                            continue;
-                        }
-
-                        $nombre_act = $act_data['nombre'] ?? '';
-                        $corte_nombre = $act_data['corte'] ?? 'Corte 1';
-                        $porcentaje_val = floatval($act_data['porcentaje'] ?? 0);
-
-                        $stmt_save = $pdo->prepare("INSERT INTO notas (estudiante_id, curso_id, actividad_id, actividad, corte, porcentaje, nota) 
-                                                    VALUES (?, ?, ?, ?, ?, ?, ?) 
-                                                    ON DUPLICATE KEY UPDATE nota = VALUES(nota)");
-                        $stmt_save->execute([$est_id, $curso_id, $act_id, $nombre_act, $corte_nombre, $porcentaje_val, $nota_num]);
+                    if ($val_nota === '') {
+                        continue;
                     }
+
+                    if (!is_numeric($val_nota)) {
+                        $error_validacion = "Error: la calificación ingresada no es un número válido.";
+                        break 2;
+                    }
+
+                    $nota_num = floatval($val_nota);
+
+                    if ($nota_num < 0.0 || $nota_num > $escala_max) {
+                        $error_validacion = "Error: Las calificaciones deben estar entre 0.0 y " . number_format($escala_max, 1) . ".";
+                        break 2;
+                    }
+
+                    $stmt_act_info->execute([$act_id, $curso_id]);
+                    $act_data = $stmt_act_info->fetch(PDO::FETCH_ASSOC);
+
+                    if (!$act_data) {
+                        continue;
+                    }
+
+                    $pendientes[] = [
+                        (int) $est_id,
+                        (int) $curso_id,
+                        (int) $act_id,
+                        (string) ($act_data['nombre'] ?? ''),
+                        (string) ($act_data['corte'] ?? 'Corte 1'),
+                        floatval($act_data['porcentaje'] ?? 0),
+                        $nota_num,
+                    ];
                 }
             }
-            if (!$hay_error_rango) {
+
+            if ($error_validacion !== null) {
+                // Nada se guardó: la planilla queda exactamente como estaba
+                $mensaje_error = $error_validacion;
+            } else {
+                // FASE 2 — escritura atómica
+                $stmt_save = $pdo->prepare("INSERT INTO notas (estudiante_id, curso_id, actividad_id, actividad, corte, porcentaje, nota) 
+                                            VALUES (?, ?, ?, ?, ?, ?, ?) 
+                                            ON DUPLICATE KEY UPDATE nota = VALUES(nota)");
+
+                $pdo->beginTransaction();
+                foreach ($pendientes as $params) {
+                    $stmt_save->execute($params);
+                }
+                $pdo->commit();
+
                 $mensaje_exito = "Calificaciones guardadas exitosamente.";
             }
         } catch (PDOException $e) {
-            $mensaje_error = "Error al guardar calificaciones: " . $e->getMessage();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('[NotaNova] guardar_notas: ' . $e->getMessage());
+            $mensaje_error = "No se pudieron guardar las calificaciones. Ningún dato fue modificado, inténtalo de nuevo.";
         }
     }
 }
